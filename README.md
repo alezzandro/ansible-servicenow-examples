@@ -19,18 +19,16 @@ Before running this playbook via Ansible Automation Platform, ensure you have th
     * Access to create/manage Projects, Credentials, Inventories, and Job Templates.
 2.  **Execution Environment (EE)**:
     * The EE used by your Job Template must include the `servicenow.itsm` Ansible collection.
-    * If using a custom EE, ensure this collection is built into it. If using a pre-built EE, verify its contents or consider synchronizing the collection from Automation Hub/Galaxy to your AAP Controller.
-    * To install the collection for inclusion in an EE (if building one):
-        ```bash
-        ansible-galaxy collection install servicenow.itsm
-        ```
+    * You can build your own or use this one I build `quay.io/alezzandro/ee-minimal-itsm:2.9.3`
 3.  **ServiceNow Instance Access**:
     * A ServiceNow instance URL (e.g., `your_instance.service-now.com`).
     * Credentials (username and password) for a ServiceNow user with permissions to:
         * Create incidents (`incident` table).
         * Update incidents (specifically, add work notes).
         These credentials will be stored securely in AAP's credential store.
-4.  **Playbook Repository**: The `servicenow_incident_management.yml` playbook and this `README.md` should be stored in a Git repository accessible by your AAP instance.
+    * You can get your Developer Instance to test it at: https://developer.servicenow.com
+        * You will find a preconfigured user `Instance.Manager` that you can use for your tests. You will just need to update/change the password.
+4.  **Playbook Repository**: The `servicenow_incident_management.yml` playbook should be stored in a Git repository accessible by your AAP instance.
 
 ## Playbook Variables & AAP Configuration
 
@@ -144,30 +142,6 @@ The playbook includes default values for `snow_instance`, `snow_user`, and `snow
     * From the `Templates` view, click the rocket icon next to your Job Template.
     * If you configured a Survey, AAP will prompt you to enter the `Incident Description` and `Update Message`.
     * Click `Launch`. The playbook will execute within AAP, creating and updating the incident in ServiceNow.
-
-## Security Note: Managing Credentials in AAP
-
-Ansible Automation Platform provides a secure way to store credentials. **Always use AAP's built-in credential management** for sensitive data like ServiceNow passwords. Do not hardcode them in playbooks or pass them insecurely. The playbook is written to expect `snow_instance_host`, `snow_username`, and `snow_user_password` to be supplied, which AAP's credential system (standard or custom) will inject when the job runs.
-
-## Playbook Structure (Brief Overview)
-
-The playbook (`servicenow_incident_management.yml`) includes:
-
-1.  **Host and Connection Setup**: Targets `localhost`.
-2.  **Variable Definitions (`vars`)**: Default placeholders, intended to be overridden by AAP configuration (Credentials, Survey, or Extra Vars).
-3.  **Tasks**:
-    * **Assertion Task**: Checks if essential variables (like descriptions and ServiceNow connection parameters) are properly set.
-    * **Create Incident Task**: Uses `servicenow.itsm.incident` to create the incident.
-    * **Update Incident Task**: Uses `servicenow.itsm.incident` to add a work note.
-    * Debug tasks for output.
-
-## Troubleshooting in AAP
-
-* **Job Output**: Check the job output in AAP for detailed error messages.
-* **Credential Issues**: Ensure the ServiceNow credential in AAP is correct, has the right permissions in ServiceNow, and is correctly mapped/applied to the Job Template. Verify the custom credential type's input and injector configurations if used.
-* **Execution Environment**: Verify the `servicenow.itsm` collection is available in the EE. Logs might indicate "module not found."
-* **Connectivity**: Ensure your AAP execution nodes can reach the ServiceNow instance URL (`snow_instance_host`) over HTTPS (port 443). Check firewall rules and proxy settings if applicable for your execution nodes.
-* **Survey Variables**: Double-check that the "Variable Name" in your Survey matches what the playbook expects (e.g., `incident_description`, `update_message`).
 
 ## Contributing
 
