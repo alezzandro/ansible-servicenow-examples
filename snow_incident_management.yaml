@@ -39,7 +39,8 @@
     snow_instance: "{{ snow_instance_host | default('your_instance.service-now.com') }}" # Example: dev12345.service-now.com
     snow_user: "{{ snow_username | default('api_user') }}"
     snow_password: "{{ snow_user_password | default('api_password_placeholder') }}"
-    # incident_description and update_message will be passed as extra variables (-e)
+    incident_description:  "{{ slack_message }}"
+    update_message: "{{ rca_response.json.choices[0].text | default('No RCA available') | trim }}"
 
   tasks:
     - name: Check if required variables are provided
