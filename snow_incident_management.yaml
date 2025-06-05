@@ -1,0 +1,102 @@
+# Filename: servicenow_incident_management.yml
+#
+# Description:
+# This Ansible playbook creates a new incident in ServiceNow with a description
+# provided at runtime, and then posts an update message to the newly created incident.
+#
+# Requirements:
+#   - Ansible installed on the control node.
+#   - The 'servicenow.itsm' Ansible collection installed:
+#     `ansible-galaxy collection install servicenow.itsm`
+#   - ServiceNow instance details (host, username, password) with permissions
+#     to create and update incidents.
+#
+# How to Run:
+#   ansible-playbook servicenow_incident_management.yml \
+#     -e "incident_description='Network outage in Building A'" \
+#     -e "update_message='Initial investigation started. Checking core switch.'" \
+#     -e "snow_instance='your_instance.service-now.com'" \
+#     -e "snow_user='your_snow_username'" \
+#     -e "snow_password='your_snow_password'"
+#
+# Note on Credentials:
+# For production environments, it is strongly recommended to use Ansible Vault
+# to encrypt sensitive data like 'snow_password', or use environment variables,
+# or integrate with a secrets management tool.
+# Example using Vault:
+#   1. Create an encrypted vars file (e.g., secrets.yml) with your credentials.
+#   2. Run the playbook with: `ansible-playbook servicenow_incident_management.yml --ask-vault-pass -e @secrets.yml -e "..."`
+
+- name: Create and Update ServiceNow Incident
+  hosts: localhost         # Run on the Ansible control node
+  gather_facts: false      # No need to gather facts for this playbook
+  connection: local        # Connect to localhost
+
+  # These variables define the connection to your ServiceNow instance.
+  # It's recommended to provide these via extra vars (-e), environment variables,
+  # or Ansible Vault for better security and flexibility, as shown in the "How to Run" section.
+  vars:
+    snow_instance: "{{ snow_instance_host | default('your_instance.service-now.com') }}" # Example: dev12345.service-now.com
+    snow_user: "{{ snow_username | default('api_user') }}"
+    snow_password: "{{ snow_user_password | default('api_password_placeholder') }}"
+    # incident_description and update_message will be passed as extra variables (-e)
+
+  tasks:
+    - name: Check if required variables are provided
+      ansible.builtin.assert:
+        that:
+          - incident_description is defined and incident_description | length > 0
+          - update_message is defined and update_message | length > 0
+          - snow_instance is defined and snow_instance != 'your_instance.service-now.com'
+          - snow_user is defined and snow_user != 'api_user'
+          - snow_password is defined and snow_password != 'api_password_placeholder'
+        fail_msg: |
+          One or more required variables are not defined or are using default placeholders.
+          Please provide 'incident_description', 'update_message', 'snow_instance', 'snow_user', and 'snow_password'
+          at runtime. Example:
+          ansible-playbook <playbook_name>.yml \
+            -e "incident_description='User cannot login'" \
+            -e "update_message='Password reset procedure initiated.'" \
+            -e "snow_instance='myinstance.service-now.com'" \
+            -e "snow_user='ansible_user'" \
+            -e "snow_password='secure_password'"
+        quiet: true # Suppress "assertion passed" message
+
+    - name: Create a new ServiceNow incident
+      servicenow.itsm.incident:
+        instance:
+          host: "{{ snow_instance }}"
+          username: "{{ snow_user }}"
+          password: "{{ snow_password }}"
+        state: new
+        short_description: "{{ incident_description | trim | truncate(80, True, '...') }}" # Use the provided description, trimmed and truncated for short_description
+        description: "{{ incident_description }}" # Full description
+        # Optional parameters you might want to set:
+        # caller_id: "john.doe"  # Username of the caller
+        # contact_type: "self-service"
+        # impact: 2 # 1-High, 2-Medium, 3-Low
+        # urgency: 2 # 1-High, 2-Medium, 3-Low
+        # assignment_group: "Service Desk" # Name of the assignment group
+      register: new_incident_details # Register the output of this task
+
+    - name: Display new incident details
+      ansible.builtin.debug:
+        msg: "Successfully created ServiceNow Incident. Number: {{ new_incident_details.record.number }}, SysID: {{ new_incident_details.record.sys_id }}"
+      when: new_incident_details.changed
+
+    - name: Post an update (work note) to the incident
+      servicenow.itsm.incident:
+        instance:
+          host: "{{ snow_instance }}"
+          username: "{{ snow_user }}"
+          password: "{{ snow_password }}"
+        state: in_progress # Set the incident state to 'In Progress' (or other as needed)
+        number: "{{ new_incident_details.record.number }}" # Identify incident by its number from the previous task
+        work_notes: "{{ update_message }}" # The custom message to add as a work note
+      register: updated_incident_details
+      when: new_incident_details.changed and new_incident_details.record.number is defined
+
+    - name: Display confirmation of incident update
+      ansible.builtin.debug:
+        msg: "Successfully added work note to incident {{ new_incident_details.record.number }}: '{{ update_message }}'"
+      when: updated_incident_details.changed
