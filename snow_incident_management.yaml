@@ -75,8 +75,8 @@
         # Optional parameters you might want to set:
         # caller_id: "john.doe"  # Username of the caller
         # contact_type: "self-service"
-        # impact: 2 # 1-High, 2-Medium, 3-Low
-        # urgency: 2 # 1-High, 2-Medium, 3-Low
+        impact: 1 # 1-High, 2-Medium, 3-Low
+        urgency: 1 # 1-High, 2-Medium, 3-Low
         # assignment_group: "Service Desk" # Name of the assignment group
       register: new_incident_details # Register the output of this task
 
@@ -93,7 +93,8 @@
           password: "{{ snow_password }}"
         state: in_progress # Set the incident state to 'In Progress' (or other as needed)
         number: "{{ new_incident_details.record.number }}" # Identify incident by its number from the previous task
-        work_notes: "{{ update_message }}" # The custom message to add as a work note
+        other:
+          work_notes: "{{ update_message }}" # The custom message to add as a work note
       register: updated_incident_details
       when: new_incident_details.changed and new_incident_details.record.number is defined
 
